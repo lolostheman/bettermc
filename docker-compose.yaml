@@ -1,6 +1,6 @@
 services:
   minecraft:
-    image: itzg/minecraft-server:java17
+    image: itzg/minecraft-server:java21
     container_name: mc-bettermc
     restart: unless-stopped
     ports:
@@ -10,10 +10,9 @@ services:
     environment:
       EULA: "TRUE"
 
-      TYPE: "AUTO_CURSEFORGE"
+      CURSEFORGE_FILES: "https://www.curseforge.com/minecraft/modpacks/better-mc-forge-bmc4/files/7443300"
       CF_API_KEY: "${CF_API_KEY}"
-      CF_SLUG: "${CF_SLUG}"
-      CF_FILE_ID: "${CF_FILE_ID}"
+      
 
       ENABLE_RCON: "true"
       RCON_PORT: "25575"
