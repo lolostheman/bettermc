@@ -1,0 +1,51 @@
+services:
+  minecraft:
+    image: itzg/minecraft-server:java17
+    container_name: mc-bettermc
+    restart: unless-stopped
+    ports:
+      - "25565:25565"
+      # RCON only needs to be reachable by the bot container, but exposing is ok if you want.
+      - "25575:25575"
+    environment:
+      EULA: "TRUE"
+
+      TYPE: "CURSEFORGE"
+      CF_API_KEY: "${CF_API_KEY}"
+      CF_SLUG: "${CF_SLUG}"
+      CF_FILE_ID: "${CF_FILE_ID}"
+
+      ENABLE_RCON: "true"
+      RCON_PORT: "25575"
+      RCON_PASSWORD: "${RCON_PASSWORD}"
+
+      MEMORY: "${MC_MEMORY}"
+
+    volumes:
+      - ./persist/mc-data:/data
+
+  rcon-bot:
+    build:
+      context: ./rcon-bot
+    container_name: mc-rcon-bot
+    restart: unless-stopped
+    depends_on:
+      - minecraft
+    environment:
+      RCON_HOST: "minecraft"
+      RCON_PORT: "25575"
+      RCON_PASSWORD: "${RCON_PASSWORD}"
+
+      # where we persist player json
+      PLAYER_JSON_PATH: "/data/player_names.json"
+
+      # log file to tail (Forge usually writes latest.log here)
+      LOG_PATH: "/data/logs/latest.log"
+
+      # world folder location (inside /data)
+      WORLD_PATH: "/data/world"
+    volumes:
+      # Mount the same /data so the bot can read logs and reset the world/json
+      - ./persist/mc-data:/data
+      # Optional: explicit bind of player_names.json if you want it as a standalone file too
+      # - ./persist/player_names.json:/data/player_names.json
