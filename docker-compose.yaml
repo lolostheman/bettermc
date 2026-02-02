@@ -5,20 +5,21 @@ services:
     restart: unless-stopped
     ports:
       - "25565:25565"
-      # RCON only needs to be reachable by the bot container, but exposing is ok if you want.
       - "25575:25575"
     environment:
       EULA: "TRUE"
 
-      CURSEFORGE_FILES: "https://www.curseforge.com/minecraft/modpacks/better-mc-forge-bmc4/files/7443300"
-      CF_API_KEY: "${CF_API_KEY}"
-      
+      TYPE: "AUTO_CURSEFORGE"
+      CF_API_KEY: ${CF_API_KEY}
+      CF_PAGE_URL: "https://www.curseforge.com/minecraft/modpacks/better-mc-forge-bmc4"
+      CF_FILE_ID: "7443284"
+      CF_FORCE_SYNCHRONIZE: "true"
 
       ENABLE_RCON: "true"
       RCON_PORT: "25575"
-      RCON_PASSWORD: "${RCON_PASSWORD}"
+      RCON_PASSWORD: ${RCON_PASSWORD}
 
-      MEMORY: "${MC_MEMORY}"
+      MEMORY: ${MC_MEMORY}
 
     volumes:
       - ./persist/mc-data:/data
