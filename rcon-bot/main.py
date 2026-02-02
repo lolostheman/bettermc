@@ -167,8 +167,8 @@ class Server:
         print("New player joined the server")
 
 def rcon_connect():
-    client = RCONClient(RCON_HOST, port=RCON_PORT)
     while True:
+        client = RCONClient(RCON_HOST, port=RCON_PORT)
         try:
             ok = client.login(RCON_PASSWORD)
             if ok:
@@ -259,7 +259,7 @@ def reset_world_and_players(client):
 
 def run_game():
     current_players = load_player_json()
-    theServer = Server(current_players)
+    theServer = Server(len(current_players), players=current_players)
     theServer.set_max_death_count()
     theServer.set_cur_death_count()
 
