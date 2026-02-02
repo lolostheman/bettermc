@@ -280,7 +280,7 @@ def run_game():
             continue
 
         # DEATH
-        if ("<" in line and ">" in line) or "[Server]" in line:
+        if ("<" in line and ">" in line) or "[Server]" or "[Rcon]" in line:
             continue
 
         d = DEATH_RE.search(line)
