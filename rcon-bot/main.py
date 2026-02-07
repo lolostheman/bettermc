@@ -185,7 +185,11 @@ def check_for_join(line):
     if m:
         player_name = m.group("player")
         event_q.append(["join", player_name, line])
- 
+
+def check_for_stats(line):
+    if "get stats" in line:
+        event_q.append(["stats", None, line])
+        
 def log_output(process, stop_event, event_q):
     try:
         for line in process.stdout:
@@ -248,14 +252,15 @@ def run_game():
                         p.add_death()
                         update_player_count(player, p.deaths)
                         theServer.add_death()
-                        send_command(f"say Now yall are rocking with §4§l{theServer.currentDeathCount}§r / §4§l{theServer.get_max_death_count()}§r")
+                        send_command(f"say §4§l{theServer.currentDeathCount}§r / §4§l{theServer.get_max_death_count()}§r lives wasted...")
                         break
                 if theServer.get_death_count() > theServer.get_max_death_count():
                     send_command(f"say you guys fucking lost... gg... lightning strike incoming...")
                     time.sleep(3)
                     send_command(f"say here are some stats, so yall can pick the blame...")
+                    time.sleep(1)
                     for p in theServer.players:
-                        send_command(f"say {p.name} died {p.deaths} time(s)")
+                        send_command(f"say §b§l§n{p.name}§r died §b§l§n{p.deaths}§r time(s)")
                         time.sleep(2)
                     
                     send_command("say time to execute log and his friends")
@@ -284,11 +289,16 @@ def run_game():
                     send_command(f"say {player} has joined")
                     send_command(f"say The new max Death Count is {theServer.get_max_death_count()}")
 
+            elif event == "stats":
+                send_command(f"say §4§l{theServer.get_max_death_count() - theServer.currentDeathCount}§r lives remaining")
+                time.sleep(1)
+                for p in theServer.players:
+                    send_command(f"say §b§l§n{p.name}§r died §b§l§n{p.deaths}§r time(s)")
+                    time.sleep(2)
+
 def main():
     run_game()
         
-    
-
 def send_command(command):
     with MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT) as rcon:
         response = rcon.command(command)
