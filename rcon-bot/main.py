@@ -325,8 +325,8 @@ def reset_run():
     else:
         print(f"WARNING: '{world_folder}' folder not found, skipping deletion.")
 
-    if os.path.exists("player_names.json"):
-        with open("player_names.json", "w") as f:
+    if os.path.exists("/data/player_names.json"):
+        with open("/data/player_names.json", "w") as f:
             json.dump({}, f)
  
     print("INFO: World + player data reset complete")

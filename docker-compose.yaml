@@ -8,6 +8,9 @@ services:
       - "25575:25575"
     environment:
       EULA: "TRUE"
+      DIFFICULTY: "hard"
+      FORCE-GAMEMODE: "true"
+
 
       TYPE: "AUTO_CURSEFORGE"
       CF_API_KEY: ${CF_API_KEY}
