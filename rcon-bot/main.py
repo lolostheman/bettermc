@@ -171,7 +171,7 @@ def start_minecraft_server():
     return process
 
 def check_for_death(line):
-    if ("<" in line and ">" in line) or "[Server]" in line:
+    if ("<" in line and ">" in line) or "[Rcon]" in line:
         return
     
     m = DEATH_RE.search(line)
@@ -201,7 +201,7 @@ def log_output(process, stop_event, event_q):
 
 def update_player_count(player_name, count):
     if os.path.exists("/data/player_names.json"):
-        with open("player_names.json", "r") as f:
+        with open("/data/player_names.json", "r") as f:
             try:
                 data = json.load(f)
             except json.JSONDecodeError:
