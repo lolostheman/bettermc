@@ -78,6 +78,7 @@ DEATH_RE = re.compile(
     """,
     re.IGNORECASE | re.VERBOSE
 )
+STATS_RE = re.compile(r":\s*(?:<[^>]+>\s*)?get stats\b", re.IGNORECASE)
 # {"spathak": 1, "xxtenation": 2, "lolostheman": 1}
 stop_flag = threading.Event()
 RCON_HOST = os.getenv("RCON_HOST", "minecraft")
@@ -187,9 +188,10 @@ def check_for_join(line):
         event_q.append(["join", player_name, line])
 
 def check_for_stats(line):
-    if "get stats" in line:
+    m = STATS_RE.search(line)
+    if m:
         event_q.append(["stats", None, line])
-        
+
 def log_output(process, stop_event, event_q):
     try:
         for line in process.stdout:
@@ -227,6 +229,7 @@ def log_reader():
     for line in proc.stdout:
         check_for_death(line)
         check_for_join(line)
+        check_for_stats(line)
 
             
 
