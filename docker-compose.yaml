@@ -23,6 +23,7 @@ services:
 
     volumes:
       - ./persist/mc-data:/data
+      - ./server-icon.png:/data/server-icon.png:ro
 
   rcon-bot:
     build:
