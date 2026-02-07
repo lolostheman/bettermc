@@ -251,7 +251,7 @@ def send_command(command):
    
 def reset_run(process):
 
-    stop_minecraft_server(process)
+    # stop_minecraft_server(process)
 
     """Deletes the Minecraft world folder to reset the world."""
     world_folder = "world"  # Adjust this if your world folder has a different name or 
