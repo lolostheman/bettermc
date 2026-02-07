@@ -219,7 +219,7 @@ def log_reader():
         text=True,
         bufsize=1
     )
-    for line in proc.stdoud:
+    for line in proc.stdout:
         print(line)
 
             
