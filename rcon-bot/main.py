@@ -7,6 +7,7 @@ import threading
 import time
 import re
 import platform
+from mcron import MCRcon
 
 JOIN_RE = re.compile(
     r"(?:^.*?:\s+)?(?P<player>[A-Za-z0-9_]{3,16}) joined the game",
@@ -79,6 +80,9 @@ DEATH_RE = re.compile(
 )
 # {"spathak": 1, "xxtenation": 2, "lolostheman": 1}
 stop_flag = threading.Event()
+RCON_HOST = os.getenv("RCON_HOST", "minecraft")
+RCON_PORT = os.getenv("RCON_PORT", "25575")
+RCON_PASSWORD = os.getenv("RCON_PASSWORD", "change_me_super_secret")
 
 def load_player_json():
     player_names = {}
@@ -208,9 +212,15 @@ def update_player_count(player_name, count):
     with open("/data/player_names.json", "w") as f:
         json.dump(data, f, indent=2)
 
-def log_reader(proc: subprocess.Popen):
-    for raw in proc.stdout:
-        print(raw)
+def log_reader():
+    proc = subprocess.Popen(
+        ['tail', '-F', "/data/logs/latest.log"],
+        stdout=subprocess.PIPE,
+        text=True,
+        bufsize=1
+    )
+    for line in proc.stdoud:
+        print(line)
 
             
 
@@ -223,49 +233,22 @@ def run_game():
     theServer.set_max_death_count()
     theServer.set_cur_death_count()
 
-    
-    proc = subprocess.Popen(
-        ["bash", "-lc", "java -jar server.jar nogui"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,              # line buffered
-        universal_newlines=True
-    )
-
-    t_reader = threading.Thread(target=log_reader, args=(proc,), daemon=True)
-    t_reader.start()
-
-    try:
-        proc.wait()
-    except KeyboardInterrupt:
-        stop_flag.set()
-        proc.terminate()
+    threading.Thread(target=log_reader, daemon=True).start()
+    while True:
+        time.sleep(60)
 
 def main():
     run_game()
         
     
 
-def send_command(process, command):
-    if process.stdin:
-        process.stdin.write(f"{command}\n")
-        process.stdin.flush()
-    else:
-        print("ERROR: failed to send command to server, stdin is not available")
+def send_command(command):
+    with MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT) as rcon:
+        response = rcon.command(command)
+        print(response)
 
-def stop_minecraft_server(process):
-    
-    """Stops the Minecraft server gracefully."""
-    if process.stdin:
-        print("INFO: Stopping the Minecraft server...")
-        process.stdin.write("stop\n")
-        process.stdin.flush()
-        process.wait()  # Wait for the server to shut down
-        print("INFO: Minecraft server stopped.")
-    else:
-        print("ERROR: Failed to stop the server; stdin is not available.")
-
+# def stop_minecraft_server(process):
+   
 def reset_run(process):
 
     stop_minecraft_server(process)
