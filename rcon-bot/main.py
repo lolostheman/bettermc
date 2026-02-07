@@ -83,7 +83,7 @@ stop_flag = threading.Event()
 RCON_HOST = os.getenv("RCON_HOST", "minecraft")
 RCON_PORT = os.getenv("RCON_PORT", "25575")
 RCON_PASSWORD = os.getenv("RCON_PASSWORD", "change_me_super_secret")
-
+event_q = []
 def load_player_json():
     player_names = {}
     try:
@@ -170,20 +170,21 @@ def start_minecraft_server():
     )
     return process
 
-def check_for_death(line, event_q):
+def check_for_death(line):
     if ("<" in line and ">" in line) or "[Server]" in line:
         return
     
     m = DEATH_RE.search(line)
     if m:
         player_name = m.group("player")
-        event_q.put(("death", player_name, line))
+        event_q.append(["death", player_name, line])
 
-def check_for_join(line, event_q):
+
+def check_for_join(line):
     m = JOIN_RE.search(line)
     if m:
         player_name = m.group("player")
-        event_q.put(("join", player_name, line))
+        event_q.append(["join", player_name, line])
  
 def log_output(process, stop_event, event_q):
     try:
@@ -220,7 +221,8 @@ def log_reader():
         bufsize=1
     )
     for line in proc.stdout:
-        print(line)
+        check_for_death(line)
+        check_for_join(line)
 
             
 
@@ -235,7 +237,52 @@ def run_game():
 
     threading.Thread(target=log_reader, daemon=True).start()
     while True:
-        time.sleep(60)
+        if event_q:
+            [event, player, line] = event_q.pop(0)
+
+            if event == "death":
+                send_command(f"say §l§4{player} has fucking died... dumb fuck...§r")
+                time.sleep(5)
+                for p in theServer.players:
+                    if p.name == player:
+                        p.add_death()
+                        update_player_count(player, p.deaths)
+                        theServer.add_death()
+                        send_command(f"say Now yall are rocking with §4§l{theServer.currentDeathCount}§r / §4§l{theServer.get_max_death_count()}§r")
+                        break
+                if theServer.get_death_count() > theServer.get_max_death_count():
+                    send_command(f"say you guys fucking lost... gg... lightning strike incoming...")
+                    time.sleep(3)
+                    send_command(f"say here are some stats, so yall can pick the blame...")
+                    for p in theServer.players:
+                        send_command(f"say {p.name} died {p.deaths} time(s)")
+                        time.sleep(2)
+                    
+                    send_command("say time to execute log and his friends")
+                    time.sleep(3)
+                    send_command("execute at @a run summon lightning_bolt ~ ~ ~")
+                    time.sleep(1)
+                    send_command("say 3...")
+                    time.sleep(1)
+                    send_command("say 2...")
+                    time.sleep(1)
+                    send_command("say 1...")
+                    time.sleep(1)
+                    reset_run()
+            elif event == "join":
+                print(f"{player} joined")
+            
+                player_exists = False
+                for p in theServer.players:
+                    if p.name == player:
+                        player_exists = True
+                        break
+                    
+                if not player_exists:
+                    update_player_count(player, 0)
+                    theServer.add_player(Player(player))
+                    send_command(f"say {player} has joined")
+                    send_command(f"say The new max Death Count is {theServer.get_max_death_count()}")
 
 def main():
     run_game()
@@ -249,12 +296,13 @@ def send_command(command):
 
 # def stop_minecraft_server(process):
    
-def reset_run(process):
+def reset_run():
 
-    # stop_minecraft_server(process)
+    send_command("stop")
+    time.sleep(5)
 
     """Deletes the Minecraft world folder to reset the world."""
-    world_folder = "world"  # Adjust this if your world folder has a different name or 
+    world_folder = "/data/world"  # Adjust this if your world folder has a different name or 
     if os.path.exists(world_folder):
         if platform.system() == "Windows":
             os.system(f"rmdir /s /q {world_folder}")
