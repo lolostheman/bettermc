@@ -7,7 +7,7 @@ import threading
 import time
 import re
 import platform
-from mcron import MCRcon
+from mcrcon import MCRcon
 
 JOIN_RE = re.compile(
     r"(?:^.*?:\s+)?(?P<player>[A-Za-z0-9_]{3,16}) joined the game",
