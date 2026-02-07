@@ -81,7 +81,7 @@ DEATH_RE = re.compile(
 # {"spathak": 1, "xxtenation": 2, "lolostheman": 1}
 stop_flag = threading.Event()
 RCON_HOST = os.getenv("RCON_HOST", "minecraft")
-RCON_PORT = os.getenv("RCON_PORT", 25575)
+RCON_PORT = int(os.getenv("RCON_PORT", "25575"))
 RCON_PASSWORD = os.getenv("RCON_PASSWORD", "change_me_super_secret")
 event_q = []
 def load_player_json():
