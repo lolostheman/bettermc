@@ -277,6 +277,14 @@ def run_game():
                     send_command("say 1...")
                     time.sleep(1)
                     reset_run()
+                    time.sleep(5)
+                    # Load json with player data
+                    current_players = load_player_json()
+
+                    # Load server and set death count stats
+                    theServer = Server(len(current_players), current_players)
+                    theServer.set_max_death_count()
+                    theServer.set_cur_death_count()
             elif event == "join":
                 print(f"{player} joined")
             

@@ -9,7 +9,7 @@ services:
     environment:
       EULA: "TRUE"
       DIFFICULTY: "hard"
-      FORCE-GAMEMODE: "true"
+      FORCE-GAMEMODE: "TRUE"
 
 
       TYPE: "AUTO_CURSEFORGE"
