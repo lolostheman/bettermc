@@ -130,7 +130,7 @@ class Server:
             self.currentDeathCount += player.get_death_count()
 
     def set_max_death_count(self):
-        self.maxDeathCount = math.floor(len(self.players) * 1.5)
+        self.maxDeathCount = math.floor(len(self.players) * 1)
 
     def get_max_death_count(self):
         return self.maxDeathCount
