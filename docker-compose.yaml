@@ -33,7 +33,7 @@ services:
       - minecraft
     environment:
       RCON_HOST: "minecraft"
-      RCON_PORT: "25575"
+      RCON_PORT: 25575
       RCON_PASSWORD: "${RCON_PASSWORD}"
 
       # where we persist player json
