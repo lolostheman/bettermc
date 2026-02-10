@@ -270,6 +270,8 @@ def run_game():
                     time.sleep(3)
                     send_command("execute at @a run summon lightning_bolt ~ ~ ~")
                     time.sleep(1)
+                    send_command("execute at @a run summon lightning_bolt ~ ~ ~")
+                    time.sleep(1)
                     send_command("say 3...")
                     time.sleep(1)
                     send_command("say 2...")
@@ -320,7 +322,7 @@ def send_command(command):
 def reset_run():
 
     send_command("stop")
-    time.sleep(5)
+    time.sleep(1)
 
     """Deletes the Minecraft world folder to reset the world."""
     world_folder = "/data/world"  # Adjust this if your world folder has a different name or 
