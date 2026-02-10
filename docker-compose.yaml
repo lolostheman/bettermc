@@ -9,7 +9,7 @@ services:
     environment:
       EULA: "TRUE"
       DIFFICULTY: "hard"
-      FORCE-GAMEMODE: "TRUE"
+      FORCE_GAMEMODE: "TRUE"
 
 
       TYPE: "AUTO_CURSEFORGE"
@@ -51,5 +51,6 @@ services:
     volumes:
       # Mount the same /data so the bot can read logs and reset the world/json
       - ./persist/mc-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
       # Optional: explicit bind of player_names.json if you want it as a standalone file too
       # - ./persist/player_names.json:/data/player_names.json

@@ -8,6 +8,7 @@ import time
 import re
 import platform
 from mcrcon import MCRcon
+import docker
 
 JOIN_RE = re.compile(
     r"(?:^.*?:\s+)?(?P<player>[A-Za-z0-9_]{3,16}) joined the game",
@@ -321,8 +322,9 @@ def send_command(command):
    
 def reset_run():
 
-    send_command("stop")
-    time.sleep(1)
+    client = docker.from_env()
+    mc = client.containers.get("mc-bettermc")
+    mc.stop(timeout=30)
 
     """Deletes the Minecraft world folder to reset the world."""
     world_folder = "/data/world"  # Adjust this if your world folder has a different name or 
@@ -331,6 +333,7 @@ def reset_run():
             os.system(f"rmdir /s /q {world_folder}")
         else:
             os.system(f"rm -rf {world_folder}")
+            time.sleep(1)
         print(f"INFO: Deleted the '{world_folder}' folder.")
     else:
         print(f"WARNING: '{world_folder}' folder not found, skipping deletion.")
@@ -340,6 +343,8 @@ def reset_run():
             json.dump({}, f)
  
     print("INFO: World + player data reset complete")
+
+    mc.start()
 
 if __name__ == "__main__":
     main()
