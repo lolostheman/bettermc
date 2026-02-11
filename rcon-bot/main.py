@@ -80,6 +80,7 @@ DEATH_RE = re.compile(
     re.IGNORECASE | re.VERBOSE
 )
 STATS_RE = re.compile(r":\s*(?:<[^>]+>\s*)?get stats\b", re.IGNORECASE)
+SACHIN_RE = re.compile(r":\s*(?:<[^>]+>\s*)?kill southie sachin\b", re.IGNORECASE)
 # {"spathak": 1, "xxtenation": 2, "lolostheman": 1}
 stop_flag = threading.Event()
 RCON_HOST = os.getenv("RCON_HOST", "minecraft")
@@ -157,7 +158,7 @@ def start_minecraft_server():
         "-Dlog4j.skipJansi=true",
         '@user_jvm_args.txt', 
         '@libraries/net/minecraftforge/forge/1.20.1-47.4.13/win_args.txt', 
-        'nogui'  # Add nogui argument here if needed
+        'nogui' 
     ]
 
     # Start the Minecraft server process
@@ -192,6 +193,11 @@ def check_for_stats(line):
     m = STATS_RE.search(line)
     if m:
         event_q.append(["stats", None, line])
+
+def check_for_sachin(line):
+    m = SACHIN_RE.search(line)
+    if m:
+        event_q.append(["sachin", None, line])
 
 def log_output(process, stop_event, event_q):
     try:
@@ -231,6 +237,7 @@ def log_reader():
         check_for_death(line)
         check_for_join(line)
         check_for_stats(line)
+        check_for_sachin(line)
 
             
 
@@ -269,9 +276,10 @@ def run_game():
                     
                     send_command("say time to execute log and his friends")
                     time.sleep(3)
-                    send_command("execute at @a run summon lightning_bolt ~ ~ ~")
-                    time.sleep(1)
-                    send_command("execute at @a run summon lightning_bolt ~ ~ ~")
+                    send_command("", ["execute at @a run summon lightning_bolt ~ ~ ~", 
+                                      "execute at @a run summon lightning_bolt ~ ~ ~", 
+                                      "execute at @a run summon lightning_bolt ~ ~ ~", 
+                                      "execute at @a run summon lightning_bolt ~ ~ ~"])
                     time.sleep(1)
                     send_command("say 3...")
                     time.sleep(1)
@@ -310,13 +318,32 @@ def run_game():
                     send_command(f"say §b§l§n{p.name}§r died §b§l§n{p.deaths}§r time(s)")
                     time.sleep(2)
 
+            elif event == "sachin":
+                send_command(f"say §n§6 Sachin now gets punished....§r")
+                time.sleep(2)
+                send_command("attribute spathak minecraft:generic.scale base set 0.25")
+                timer = threading.Timer(20, lambda: send_command(
+                    f"attribute spathak minecraft:generic.scale base set 1"
+                ))
+                timer.start()
+                send_command("", ["effect give spathak nausea 20 2 true", 
+                                  "effect give spathak slowness 20 2 true", 
+                                  "effect give spathak jump_boost 20 3 true"])
+         
 def main():
     run_game()
         
-def send_command(command):
-    with MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT) as rcon:
-        response = rcon.command(command)
-        print(response)
+def send_command(command, commands=None):
+    if command:
+        with MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT) as rcon:
+            response = rcon.command(command)
+            print(response)
+    else:
+        with MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT) as rcon:
+            for cmd in commands:
+                response = rcon.command(cmd)
+                print(response)
+
 
 # def stop_minecraft_server(process):
    
@@ -327,7 +354,7 @@ def reset_run():
     mc.stop(timeout=30)
 
     """Deletes the Minecraft world folder to reset the world."""
-    world_folder = "/data/world"  # Adjust this if your world folder has a different name or 
+    world_folder = "/data/world" 
     if os.path.exists(world_folder):
         if platform.system() == "Windows":
             os.system(f"rmdir /s /q {world_folder}")
