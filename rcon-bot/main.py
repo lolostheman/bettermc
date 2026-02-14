@@ -288,7 +288,7 @@ def run_game():
                     send_command("say 1...")
                     time.sleep(1)
                     reset_run()
-                    time.sleep(5)
+                    time.sleep(10)
                     # Load json with player data
                     current_players = load_player_json()
 
@@ -321,11 +321,6 @@ def run_game():
             elif event == "sachin":
                 send_command(f"say §n§6 Sachin now gets punished....§r")
                 time.sleep(2)
-                send_command("attribute spathak minecraft:generic.scale base set 0.25")
-                timer = threading.Timer(20, lambda: send_command(
-                    f"attribute spathak minecraft:generic.scale base set 1"
-                ))
-                timer.start()
                 send_command("", ["effect give spathak nausea 20 2 true", 
                                   "effect give spathak slowness 20 2 true", 
                                   "effect give spathak jump_boost 20 3 true"])
@@ -343,6 +338,7 @@ def send_command(command, commands=None):
             for cmd in commands:
                 response = rcon.command(cmd)
                 print(response)
+                time.sleep(0.25)
 
 
 # def stop_minecraft_server(process):
