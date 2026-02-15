@@ -9,7 +9,6 @@ import re
 import platform
 from mcrcon import MCRcon
 import docker
-from queue import Queue, Empty
 
 JOIN_RE = re.compile(
     r"(?:^.*?:\s+)?(?P<player>[A-Za-z0-9_]{3,16}) joined the game",
@@ -87,10 +86,7 @@ stop_flag = threading.Event()
 RCON_HOST = os.getenv("RCON_HOST", "minecraft")
 RCON_PORT = int(os.getenv("RCON_PORT", "25575"))
 RCON_PASSWORD = os.getenv("RCON_PASSWORD", "change_me_super_secret")
-event_q = Queue()
-rcon_q = Queue()
-rcon_stop = threading.Event()
-
+event_q = []
 def load_player_json():
     player_names = {}
     try:
@@ -184,24 +180,24 @@ def check_for_death(line):
     m = DEATH_RE.search(line)
     if m:
         player_name = m.group("player")
-        event_q.put(("death", player_name, line))
+        event_q.append(["death", player_name, line])
 
 
 def check_for_join(line):
     m = JOIN_RE.search(line)
     if m:
         player_name = m.group("player")
-        event_q.put(("join", player_name, line))
+        event_q.append(["join", player_name, line])
 
 def check_for_stats(line):
     m = STATS_RE.search(line)
     if m:
-        event_q.put(("stats", None, line))
+        event_q.append(["stats", None, line])
 
 def check_for_sachin(line):
     m = SACHIN_RE.search(line)
     if m:
-        event_q.put(("sachin", None, line))
+        event_q.append(["sachin", None, line])
 
 def log_output(process, stop_event, event_q):
     try:
@@ -256,12 +252,12 @@ def run_game():
 
     threading.Thread(target=log_reader, daemon=True).start()
     while True:
-        
-        event, player, line = event_q.get()
-        try:
+        if event_q:
+            [event, player, line] = event_q.pop(0)
+
             if event == "death":
                 send_command(f"say §l§4{player} has fucking died... dumb fuck...§r")
-                time.sleep(2)
+                time.sleep(5)
                 for p in theServer.players:
                     if p.name == player:
                         p.add_death()
@@ -281,9 +277,9 @@ def run_game():
                     send_command("say time to execute log and his friends")
                     time.sleep(3)
                     send_command("", ["execute at @a run summon lightning_bolt ~ ~ ~", 
-                                        "execute at @a run summon lightning_bolt ~ ~ ~", 
-                                        "execute at @a run summon lightning_bolt ~ ~ ~", 
-                                        "execute at @a run summon lightning_bolt ~ ~ ~"])
+                                      "execute at @a run summon lightning_bolt ~ ~ ~", 
+                                      "execute at @a run summon lightning_bolt ~ ~ ~", 
+                                      "execute at @a run summon lightning_bolt ~ ~ ~"])
                     time.sleep(1)
                     send_command("say 3...")
                     time.sleep(1)
@@ -292,7 +288,6 @@ def run_game():
                     send_command("say 1...")
                     time.sleep(1)
                     reset_run()
-                    clear_queue(event_q)
                     time.sleep(10)
                     # Load json with player data
                     current_players = load_player_json()
@@ -301,7 +296,6 @@ def run_game():
                     theServer = Server(len(current_players), current_players)
                     theServer.set_max_death_count()
                     theServer.set_cur_death_count()
-
             elif event == "join":
                 print(f"{player} joined")
             
@@ -328,81 +322,25 @@ def run_game():
                 send_command(f"say §n§6 Sachin now gets punished....§r")
                 time.sleep(2)
                 send_command("", ["effect give spathak nausea 20 2 true", 
-                                    "effect give spathak slowness 20 2 true", 
-                                    "effect give spathak jump_boost 20 3 true"])
-        finally:
-            event_q.task_done()
-
+                                  "effect give spathak slowness 20 2 true", 
+                                  "effect give spathak jump_boost 20 3 true"])
+         
 def main():
-    threading.Thread(target=rcon_worker, daemon=True).start()
     run_game()
-
-def clear_queue(q):
-    while True:
-        try:
-            q.get_nowait()
-            q.task_done()
-        except Empty:
-            break
-
-def rcon_worker():
-
-    rcon = None
-    while not rcon_stop.is_set():
-       
-        if rcon is None:
-            try:
-                rcon = MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT)
-                rcon.connect()
-                print("INFO: RCON connected")
-            except Exception as e:
-                print(f"WARN: RCON connect failed: {e}. Retrying...")
-                rcon = None
-                time.sleep(2)
-                continue
-
-        try:
-            cmd, resp_q = rcon_q.get(timeout=0.5) 
-        except Empty:
-            continue
-
-        if cmd is None: 
-            break
-
-        try:
-            resp = rcon.command(cmd)
-            if resp_q is not None:
-                resp_q.put(resp)
-        except Exception as e:
-            print(f"WARN: RCON command failed ({e}). Reconnecting...")
-            
-            try:
-                rcon.disconnect()
-            except Exception:
-                pass
-            rcon = None
-            
-        finally:
-            rcon_q.task_done()
-
-    # cleanup
-    if rcon is not None:
-        try:
-            rcon.disconnect()
-        except Exception:
-            pass
-    print("INFO: RCON worker stopped")
-
-def send_command(command, commands=None):
-    if commands is not None:
-        for c in commands:
-            rcon_q.put((c, None))
-            time.sleep(0.25)
-        return
-    
-    if command:
-        rcon_q.put((command, None))
         
+def send_command(command, commands=None):
+    if command:
+        with MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT) as rcon:
+            response = rcon.command(command)
+            print(response)
+    else:
+        with MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT) as rcon:
+            for cmd in commands:
+                response = rcon.command(cmd)
+                print(response)
+                time.sleep(0.25)
+
+
 # def stop_minecraft_server(process):
    
 def reset_run():
