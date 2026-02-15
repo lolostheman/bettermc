@@ -9,6 +9,7 @@ import re
 import platform
 from mcrcon import MCRcon
 import docker
+from queue import Queue, Empty
 
 JOIN_RE = re.compile(
     r"(?:^.*?:\s+)?(?P<player>[A-Za-z0-9_]{3,16}) joined the game",
@@ -86,7 +87,7 @@ stop_flag = threading.Event()
 RCON_HOST = os.getenv("RCON_HOST", "minecraft")
 RCON_PORT = int(os.getenv("RCON_PORT", "25575"))
 RCON_PASSWORD = os.getenv("RCON_PASSWORD", "change_me_super_secret")
-event_q = []
+event_q = Queue()
 def load_player_json():
     player_names = {}
     try:
@@ -180,37 +181,25 @@ def check_for_death(line):
     m = DEATH_RE.search(line)
     if m:
         player_name = m.group("player")
-        event_q.append(["death", player_name, line])
+        event_q.put(("death", player_name, line))
 
 
 def check_for_join(line):
     m = JOIN_RE.search(line)
     if m:
         player_name = m.group("player")
-        event_q.append(["join", player_name, line])
+        event_q.put(("join", player_name, line))
 
 def check_for_stats(line):
     m = STATS_RE.search(line)
     if m:
-        event_q.append(["stats", None, line])
+        event_q.put(("stats", None, line))
 
 def check_for_sachin(line):
     m = SACHIN_RE.search(line)
     if m:
-        event_q.append(["sachin", None, line])
+        event_q.put(("sachin", None, line))
 
-def log_output(process, stop_event, event_q):
-    try:
-        for line in process.stdout:
-            if stop_event.is_set():
-                break
-            print(line, end="")
-
-            check_for_join(line, event_q)
-            check_for_death(line, event_q)
-
-    finally:
-        event_q.put(("__shutdown__", None, None))
 
 def update_player_count(player_name, count):
     if os.path.exists("/data/player_names.json"):
@@ -240,6 +229,22 @@ def log_reader():
         check_for_sachin(line)
 
             
+def get_rcon_session():
+    """
+    Returns a connected MCRcon object.
+    Reconnects forever until it succeeds.
+    MUST be called from the main thread (because mcrcon uses signal).
+    """
+    while True:
+        try:
+            rcon = MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT)
+            rcon.connect()
+            print("INFO: RCON connected")
+            return rcon
+        except Exception as e:
+            print(f"WARN: RCON connect failed: {e}. Retrying...")
+            time.sleep(2)
+
 
 def run_game():
     # Load json with player data
@@ -251,94 +256,114 @@ def run_game():
     theServer.set_cur_death_count()
 
     threading.Thread(target=log_reader, daemon=True).start()
+    rcon = get_rcon_session()
     while True:
-        if event_q:
-            [event, player, line] = event_q.pop(0)
+        event, player, line = event_q.get()
+        try:
+            try:
+                if event == "death":
+                    send_command(rcon, f"say §l§4{player} has fucking died... dumb fuck...§r")
+                    time.sleep(5)
+                    for p in theServer.players:
+                        if p.name == player:
+                            p.add_death()
+                            update_player_count(player, p.deaths)
+                            theServer.add_death()
+                            send_command(rcon, f"say §4§l{theServer.currentDeathCount}§r / §4§l{theServer.get_max_death_count()}§r lives wasted...")
+                            break
+                    if theServer.get_death_count() > theServer.get_max_death_count():
+                        send_command(rcon, f"say you guys fucking lost... gg... lightning strike incoming...")
+                        time.sleep(3)
+                        send_command(rcon, f"say here are some stats, so yall can pick the blame...")
+                        time.sleep(1)
+                        for p in theServer.players:
+                            send_command(rcon, f"say §b§l§n{p.name}§r died §b§l§n{p.deaths}§r time(s)")
+                            time.sleep(2)
+                        
+                        send_command(rcon, "say time to execute log and his friends")
+                        time.sleep(3)
+                        send_command(rcon, "", ["execute at @a run summon lightning_bolt ~ ~ ~", 
+                                        "execute at @a run summon lightning_bolt ~ ~ ~", 
+                                        "execute at @a run summon lightning_bolt ~ ~ ~", 
+                                        "execute at @a run summon lightning_bolt ~ ~ ~"])
+                        time.sleep(1)
+                        send_command(rcon, "say 3...")
+                        time.sleep(1)
+                        send_command(rcon, "say 2...")
+                        time.sleep(1)
+                        send_command(rcon, "say 1...")
+                        time.sleep(1)
+                        reset_run()
 
-            if event == "death":
-                send_command(f"say §l§4{player} has fucking died... dumb fuck...§r")
-                time.sleep(5)
-                for p in theServer.players:
-                    if p.name == player:
-                        p.add_death()
-                        update_player_count(player, p.deaths)
-                        theServer.add_death()
-                        send_command(f"say §4§l{theServer.currentDeathCount}§r / §4§l{theServer.get_max_death_count()}§r lives wasted...")
-                        break
-                if theServer.get_death_count() > theServer.get_max_death_count():
-                    send_command(f"say you guys fucking lost... gg... lightning strike incoming...")
-                    time.sleep(3)
-                    send_command(f"say here are some stats, so yall can pick the blame...")
+                        try:
+                            rcon.disconnect()
+                        except:
+                            pass
+                        rcon = get_rcon_session()
+
+                        time.sleep(10)
+                        # Load json with player data
+                        current_players = load_player_json()
+
+                        # Load server and set death count stats
+                        theServer = Server(len(current_players), current_players)
+                        theServer.set_max_death_count()
+                        theServer.set_cur_death_count()
+                elif event == "join":
+                    print(rcon, f"{player} joined")
+                
+                    player_exists = False
+                    for p in theServer.players:
+                        if p.name == player:
+                            player_exists = True
+                            break
+                        
+                    if not player_exists:
+                        update_player_count(player, 0)
+                        theServer.add_player(Player(player))
+                        send_command(rcon, f"say {player} has joined")
+                        send_command(rcon, f"say The new max Death Count is {theServer.get_max_death_count()}")
+
+                elif event == "stats":
+                    send_command(rcon, f"say §4§l{theServer.get_max_death_count() - theServer.currentDeathCount}§r lives remaining")
                     time.sleep(1)
                     for p in theServer.players:
-                        send_command(f"say §b§l§n{p.name}§r died §b§l§n{p.deaths}§r time(s)")
+                        send_command(rcon, f"say §b§l§n{p.name}§r died §b§l§n{p.deaths}§r time(s)")
                         time.sleep(2)
-                    
-                    send_command("say time to execute log and his friends")
-                    time.sleep(3)
-                    send_command("", ["execute at @a run summon lightning_bolt ~ ~ ~", 
-                                      "execute at @a run summon lightning_bolt ~ ~ ~", 
-                                      "execute at @a run summon lightning_bolt ~ ~ ~", 
-                                      "execute at @a run summon lightning_bolt ~ ~ ~"])
-                    time.sleep(1)
-                    send_command("say 3...")
-                    time.sleep(1)
-                    send_command("say 2...")
-                    time.sleep(1)
-                    send_command("say 1...")
-                    time.sleep(1)
-                    reset_run()
-                    time.sleep(10)
-                    # Load json with player data
-                    current_players = load_player_json()
 
-                    # Load server and set death count stats
-                    theServer = Server(len(current_players), current_players)
-                    theServer.set_max_death_count()
-                    theServer.set_cur_death_count()
-            elif event == "join":
-                print(f"{player} joined")
-            
-                player_exists = False
-                for p in theServer.players:
-                    if p.name == player:
-                        player_exists = True
-                        break
-                    
-                if not player_exists:
-                    update_player_count(player, 0)
-                    theServer.add_player(Player(player))
-                    send_command(f"say {player} has joined")
-                    send_command(f"say The new max Death Count is {theServer.get_max_death_count()}")
-
-            elif event == "stats":
-                send_command(f"say §4§l{theServer.get_max_death_count() - theServer.currentDeathCount}§r lives remaining")
-                time.sleep(1)
-                for p in theServer.players:
-                    send_command(f"say §b§l§n{p.name}§r died §b§l§n{p.deaths}§r time(s)")
+                elif event == "sachin":
+                    send_command(rcon, f"say §n§6 Sachin now gets punished....§r")
                     time.sleep(2)
+                    send_command(rcon, "", ["effect give spathak nausea 20 2 true", 
+                                    "effect give spathak slowness 20 2 true", 
+                                    "effect give spathak jump_boost 20 3 true"])
+            except Exception as e:
+                print(f"WARN: RCON error during '{event}': {e}. Reconnecting...")
+                try:
+                    rcon.disconnect()
+                except Exception:
+                    pass
+                rcon = get_rcon_session()
+        finally:
+            event_q.task_done()
 
-            elif event == "sachin":
-                send_command(f"say §n§6 Sachin now gets punished....§r")
-                time.sleep(2)
-                send_command("", ["effect give spathak nausea 20 2 true", 
-                                  "effect give spathak slowness 20 2 true", 
-                                  "effect give spathak jump_boost 20 3 true"])
-         
 def main():
     run_game()
         
-def send_command(command, commands=None):
-    if command:
-        with MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT) as rcon:
-            response = rcon.command(command)
-            print(response)
-    else:
-        with MCRcon(RCON_HOST, RCON_PASSWORD, port=RCON_PORT) as rcon:
-            for cmd in commands:
-                response = rcon.command(cmd)
-                print(response)
+def send_command(rcon, command, commands=None):
+    try:
+        if commands is not None:
+            for c in commands:
+                rcon.command(c)
                 time.sleep(0.25)
+            return
+
+        if command:
+            rcon.command(command)
+
+    except Exception as e:
+        # Let the caller handle reconnect
+        raise
 
 
 # def stop_minecraft_server(process):
