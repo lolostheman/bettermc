@@ -21,65 +21,67 @@ LEAVE_RE = re.compile(
 )
 DEATH_RE = re.compile(
     r"""
-    # Optional Forge / MC log prefix
-    (?:^.*?:\s+)?
-
-    # Player name (Minecraft-valid)
+    ^
+    \s*
+    (?:^.*?:\s+)?                  # optional log prefix
     (?P<player>[A-Za-z0-9_]{3,16})\s+
+    (?P<cause>.+)$                 # rest of message
+    """,
+    re.IGNORECASE | re.VERBOSE
+)
 
-    # Death messages
+DEATH_CAUSE_RE = re.compile(
+    r"""
     (?:
-        died |
-        drowned |
-        experienced\ kinetic\ energy |
-        intentional\ game\ design |
-        blew\ up |
-        blown\ up |
-        pummeled |
-        killed |
-        hit\ the\ ground\ too\ hard |
-        fell(?:\ into\ a\ ravine)? |
-        left\ the\ confines\ of\ this\ world |
-        squished |
-        suffocated |
-        was\ burnt |
-        cactus |
-        was\ slain(?:\ by\ .+)? |
-        was\ shot(?:\ by\ .+)? |
-        burned\ to\ death |
-        tried\ to\ swim\ in\ lava |
-        got\ melted\ by\ a\ blaze |
-        failed\ to\ escape\ the\ Nether |
-        fell\ out\ of\ the\ world |
-        withered\ away |
-        discovered\ the\ void |
-        discovered\ the\ floor\ was\ lava |
-        was\ doomed\ by\ the\ Wither |
-        got\ struck\ by\ lightning |
-        was\ pricked\ to\ death |
-        got\ stung\ by\ a\ bee |
-        was\ stung\ to\ death |
-        doomed\ to\ fall |
-        starved(?:\ to\ death)? |
-        was\ doomed\ by\ a\ witch |
-        was\ fireballed |
-        was\ blown\ off\ a\ cliff |
-        got\ suffocated\ in\ a\ wall |
-        impaled |
-        squashed |
-        went\ up\ in\ flames |
-        didn['’]t\ want\ to\ live |
-        skewered |
-        walked\ into\ fire |
-        went\ off\ with\ a\ bang |
-        walked\ into\ the\ danger\ zone |
-        was\ killed\ by\ magic |
-        froze\ to\ death |
-        obliterated
+        \bdied\b |
+        \bdrowned\b |
+        \bexperienced\ kinetic\ energy\b |
+        \bintentional\ game\ design\b |
+        \bblew\ up\b |
+        \bblown\ up\b |
+        \bpummeled\b |
+        \bkilled\b |
+        \bhit\ the\ ground\ too\ hard\b |
+        \bfell\b |
+        \bleft\ the\ confines\ of\ this\ world\b |
+        \bsquish(?:ed|ing)\b |
+        \bsuffocat(?:ed|ing)\b |
+        \bburn(?:ed|t)\b |
+        \bcactus\b |
+        \bslain\b |
+        \bshot\b |
+        \btried\ to\ swim\ in\ lava\b |
+        \bfailed\ to\ escape\ the\ Nether\b |
+        \bfell\ out\ of\ the\ world\b |
+        \bwithered\ away\b |
+        \bdiscovered\ the\ void\b |
+        \bdiscovered\ the\ floor\ was\ lava\b |
+        \bdoomed\b |
+        \bstruck\ by\ lightning\b |
+        \bpricked\ to\ death\b |
+        \bstung\ to\ death\b |
+        \bstung\ by\ (?:a\ )?bee\b |
+        \bstarved(?:\ to\ death)?\b |
+        \bfireballed\b |
+        \bblown\ off\ a\ cliff\b |
+        \bimpaled\b |
+        \bsquashed\b |
+        \bwent\ up\ in\ flames\b |
+        \bdidn['’]t\ want\ to\ live\b |
+        \bskewered\b |
+        \bwalked\ into\ fire\b |
+        \bwent\ off\ with\ a\ bang\b |
+        \bwalked\ into\ the\ danger\ zone\b |
+        \bkilled\ by\ magic\b |
+        \bfroze\ to\ death\b |
+        \bobliterated\b |
+        \bannihilat(?:ed|ion)\b |
+        \beviscerat(?:ed|ion)\b
     )
     """,
     re.IGNORECASE | re.VERBOSE
 )
+
 STATS_RE = re.compile(r":\s*(?:<[^>]+>\s*)?get stats\b", re.IGNORECASE)
 SACHIN_RE = re.compile(r":\s*(?:<[^>]+>\s*)?kill southie sachin\b", re.IGNORECASE)
 # {"spathak": 1, "xxtenation": 2, "lolostheman": 1}
@@ -178,9 +180,13 @@ def check_for_death(line):
     if ("<" in line and ">" in line) or "[Rcon]" in line:
         return
     
-    m = DEATH_RE.search(line)
-    if m:
-        player_name = m.group("player")
+    m = DEATH_RE.match(line)
+    if not m:
+        return
+    
+    player_name = m.group("player")
+    cause = m.group("cause")
+    if DEATH_CAUSE_RE.search(cause):
         event_q.put(("death", player_name, line))
 
 
@@ -262,6 +268,7 @@ def run_game():
         try:
             try:
                 if event == "death":
+                    print(player, "has died")
                     send_command(rcon, f"say §l§4{player} has fucking died... dumb fuck...§r")
                     time.sleep(5)
                     for p in theServer.players:
